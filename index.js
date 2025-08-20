@@ -7,6 +7,15 @@ app.use(express.json());
 // Cho phép request từ mọi nguồn gốc, bạn có thể giới hạn lại nếu cần
 app.use(cors());
 
+// Đảm bảo bảng có cột brand_logo_url (tự thêm nếu chưa có)
+(async () => {
+  try {
+    await pool.query("ALTER TABLE discovery_ads ADD COLUMN IF NOT EXISTS brand_logo_url TEXT");
+  } catch (e) {
+    console.error('DB init error (brand_logo_url):', e?.message || e);
+  }
+})();
+
 // Puppeteer để scrape
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -259,6 +268,18 @@ const scrapeFacebookAdsFromUrl = async (url, browser) => {
 
     const imageUrl = snapshot?.images?.[0]?.original_image_url || null;
     const videoUrl = snapshot?.videos?.[0]?.video_hd_url || snapshot?.videos?.[0]?.video_sd_url || null;
+    const brandLogoUrl =
+      snapshot?.page_profile_picture_url ||
+      snapshot?.page_profile_image_url ||
+      snapshot?.page?.profile_picture_url ||
+      snapshot?.page?.profile_picture?.uri ||
+      snapshot?.page?.profile_picture?.url ||
+      ad?.page_profile_picture_url ||
+      ad?.page_profile_image_url ||
+      ad?.page?.profile_picture_url ||
+      ad?.page?.profile_picture?.uri ||
+      ad?.page?.profile_picture?.url ||
+      null;
 
     return {
       brand: brand,
@@ -269,6 +290,7 @@ const scrapeFacebookAdsFromUrl = async (url, browser) => {
       ads_platforms: platformsArr ? platformsArr.join(', ') : null,
       image_url: imageUrl,
       video_url: videoUrl,
+      brand_logo_url: brandLogoUrl,
       caption: caption,
     };
   }).filter(r => r.brand || r.caption || r.image_url || r.video_url);
@@ -377,10 +399,11 @@ const scrape_data = (data) => {
       ads_platforms, 
       image_url, 
       video_url, 
-      caption
+      caption,
+      brand_logo_url
     ) 
     VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
     )
     ON CONFLICT DO NOTHING; -- Tùy chọn: Bỏ qua nếu có lỗi trùng lặp (ví dụ: dựa trên một unique constraint)
   `;
@@ -394,7 +417,8 @@ const scrape_data = (data) => {
     data.ads_platforms || null,
     data.image_url || null,
     data.video_url || null,
-    data.caption || null
+    data.caption || null,
+    data.brand_logo_url || null
   ];
 
   return { query, values };
