@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// PHẦN MỚI: Tự động tạo bảng Brands và Ads nếu chưa tồn tại
+// Tự động tạo bảng Brands và Ads nếu chưa tồn tại
 (async () => {
   try {
     console.log('Đang kiểm tra và khởi tạo database schema...');
@@ -52,7 +52,7 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const port = 5000;
 
-// PHẦN MỚI: Hàm "Get or Create" cho Brands
+//  Hàm "Get or Create" cho Brands
 /**
  * Tìm một brand theo name và platform. Nếu không có, tạo mới và trả về id.
  * @param {object} brandData - Chứa { name, logo_url, platform }
@@ -156,7 +156,7 @@ app.post('/scrape_from_links', async (req, res) => {
 });
 
 
-// HÀM MỚI: Tạo câu lệnh INSERT cho bảng "ads"
+// Tạo câu lệnh INSERT cho bảng "ads"
 const createAdInsertQuery = (data) => {
   const query = `
     INSERT INTO ads (
@@ -195,7 +195,7 @@ app.listen(port, () => {
   console.log(`Server đang chạy tại http://localhost:${port}`);
 });
 
-// ===== CÁC HÀM HELPER (GIỮ NGUYÊN) =====
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const randomDelay = (minMs = 3000, maxMs = 7000) => sleep(Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs);
 const getRandomUserAgent = () => {
@@ -209,7 +209,7 @@ const getRandomUserAgent = () => {
 };
 
 
-// ===== LOGIC SCRAPE CŨ (ĐÃ KHÔI PHỤC) =====
+
 const scrapeFacebookAdsFromUrl = async (url, browser) => {
   const page = await browser.newPage();
 
