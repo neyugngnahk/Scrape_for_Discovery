@@ -7,12 +7,14 @@ app.use(express.json());
 // Cho phép request từ mọi nguồn gốc, bạn có thể giới hạn lại nếu cần
 app.use(cors());
 
-// Đảm bảo bảng có cột brand_logo_url (tự thêm nếu chưa có)
+// Đảm bảo bảng có các cột cần thiết
 (async () => {
   try {
     await pool.query("ALTER TABLE discovery_ads ADD COLUMN IF NOT EXISTS brand_logo_url TEXT");
+    // THÊM: Thêm cột ad_id và quan trọng là đặt nó là UNIQUE
+    await pool.query("ALTER TABLE discovery_ads ADD COLUMN IF NOT EXISTS ad_id TEXT UNIQUE");
   } catch (e) {
-    console.error('DB init error (brand_logo_url):', e?.message || e);
+    console.error('DB init error:', e?.message || e);
   }
 })();
 
@@ -225,7 +227,7 @@ const scrapeFacebookAdsFromUrl = async (url, browser) => {
   const uniqueAdsRaw = [];
   for (const ad of allAdsRaw) {
     const key =
-      ad?.id || ad?.adid || ad?.snapshot?.id || ad?.snapshot?.adid ||
+      ad?.ad_archive_id || ad?.id || ad?.adid || ad?.snapshot?.id || ad?.snapshot?.adid ||
       (ad?.page_id && (ad?.snapshot?.body?.text || ad?.best_description?.text)
         ? `${ad.page_id}:${(ad?.snapshot?.body?.text || ad?.best_description?.text).slice(0,120)}`
         : null);
@@ -237,6 +239,9 @@ const scrapeFacebookAdsFromUrl = async (url, browser) => {
   // Map sang định dạng lưu DB
   const processedDataForDB = uniqueAdsRaw.map((ad) => {
     const snapshot = ad?.snapshot || ad;
+    
+    // ĐÃ SỬA LỖI: Lấy ad_id từ trường mới "ad_archive_id"
+    const adId = ad?.ad_archive_id || ad?.id || ad?.adid || snapshot?.id || snapshot?.adid || null;
 
     const brand =
       snapshot?.page_name ||
@@ -282,6 +287,7 @@ const scrapeFacebookAdsFromUrl = async (url, browser) => {
       null;
 
     return {
+      ad_id: adId,
       brand: brand,
       status: ad?.is_active ? 'Active' : 'Inactive',
       start_date: startDate,
@@ -387,10 +393,10 @@ app.post('/scrape_from_links', async (req, res) => {
 });
 
 // Hàm này tạo câu lệnh SQL và các giá trị từ một object item
-// Nó đã xử lý tốt các giá trị null
 const scrape_data = (data) => {
   const query = `
     INSERT INTO discovery_ads (
+      ad_id,
       brand, 
       status, 
       start_date, 
@@ -403,12 +409,14 @@ const scrape_data = (data) => {
       brand_logo_url
     ) 
     VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
     )
-    ON CONFLICT DO NOTHING; -- Tùy chọn: Bỏ qua nếu có lỗi trùng lặp (ví dụ: dựa trên một unique constraint)
+    -- TỐI ƯU: Chỉ định rõ ràng cột để kiểm tra xung đột
+    ON CONFLICT (ad_id) DO NOTHING;
   `;
   
   const values = [
+    data.ad_id || null,
     data.brand || null,
     data.status || null,
     data.start_date || null,
