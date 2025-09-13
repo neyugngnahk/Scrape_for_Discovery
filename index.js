@@ -110,7 +110,6 @@ app.post('/scrape_from_links', async (req, res) => {
         console.log(`✅ Đã scrape xong URL ${i + 1}/${urls.length}: ${scrapedAds.length} ads từ ${url}`);
         summary.totalAds += scrapedAds.length;
 
-        // Vòng lặp xử lý logic mới
         for (const adItem of scrapedAds) {
           // 1. Lấy hoặc tạo brand_id
           const brandId = await getOrCreateBrandId({
